@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
+using UnityEngine.UI;
 
 public class UISpawner : MonoBehaviour
 {
@@ -21,13 +23,14 @@ public class UISpawner : MonoBehaviour
     [System.Serializable]
     public class RoadUI
     {
-        public GameObject RoadUIPrefab;
-        public Transform parentObject;
+        public GameObject UIPrefab;//预制体
+        public Transform parentObject;//父物体（挂载content上）
     }
     public RoadUI roadUISet;
 
     public void RoadUISpawn()
     {
+        UISpawner spawner = this;
         for (int i = roadUISet.parentObject.childCount - 1; i >= 0; i--)//清空缓存列表
         {
             Destroy(roadUISet.parentObject.GetChild(i).gameObject);
@@ -37,14 +40,89 @@ public class UISpawner : MonoBehaviour
         int n = 0;
         foreach(var i in roadList)//生成列表
         {
-            GameObject RoadListUI = Instantiate(roadUISet.RoadUIPrefab, roadUISet.parentObject);
+            //简单生成一下叭
+            GameObject RoadListUI = Instantiate(roadUISet.UIPrefab, roadUISet.parentObject);
             RoadListUI.name = $"RoadList{n}";
+
+            //用于修改预制体内Button事件
+            Button targetButton=RoadListUI.GetComponent<Button>();
+            if (targetButton != null)
+            {
+                Debug.Log(targetButton + " " + spawner);
+                targetButton.onClick.RemoveAllListeners();//刷新监听
+                targetButton.onClick.AddListener(() =>
+                {
+                    spawner.PartUISpawn(n); // 调用C方法并传入参数
+                });
+            }
+
+
             //根据路线数据修改内容
             n++;
         }
 
     }
 
+
+
+
+
+    [System.Serializable]
+    public class PartUI
+    {
+        public GameObject UIPrefab;
+        public Transform parentObject;//挂在menu上
+        public Vector2 UIsize;//UI大小
+        public Vector2 firstUIPosition;//初始UI位置
+        public Vector2 UIOffset;  // 相对偏移量
+    }
+    public PartUI partUISet;
+
+
+
+    public void PartUISpawn(int num)
+    {
+        Transform partPanel = partUISet.parentObject.transform.Find("PartUIPanel");
+        if(partPanel != null)
+        {
+            Destroy(partPanel.gameObject);
+        }
+        GameObject partUIPanel = Instantiate(partUISet.UIPrefab, partUISet.parentObject);
+        partUIPanel.name = "PartUIPanel";
+
+        List<RoadListManeger.Road_Part> partList = roadListManeger.Road_List[num].parts;
+        int n = 0;
+
+        foreach (var i in partList)//生成列表
+        {
+            GameObject RoadListUI = Instantiate(partUISet.UIPrefab, partUIPanel.transform);
+            RoadListUI.name = $"PartList{n}";
+            SetUIPosition(RoadListUI, partUISet.firstUIPosition + n * partUISet.UIOffset);
+            //根据路线数据修改内容
+            n++;
+        }
+    }
+
+    public void EZPartUISpawn()
+    {
+        Transform partPanel = partUISet.parentObject.transform.Find("PartUIPanel");
+        if (partPanel != null)
+        {
+            Destroy(partPanel.gameObject);
+        }
+        GameObject partUIPanel = Instantiate(partUISet.UIPrefab, partUISet.parentObject);
+        partUIPanel.name = "PartUIPanel";
+
+        int n = 0;
+        while(n<4)//生成列表
+        {
+            GameObject RoadListUI = Instantiate(partUISet.UIPrefab, partUIPanel.transform);
+            RoadListUI.name = $"PartList{n}";
+            SetUIPosition(RoadListUI, partUISet.firstUIPosition + n * partUISet.UIOffset);
+            //根据路线数据修改内容
+            n++;
+        }
+    }
 
 
 
@@ -90,7 +168,7 @@ public class UISpawner : MonoBehaviour
     {
         RectTransform rt = ui.GetComponent<RectTransform>();
         rt.localPosition = localPosition;  // 使用localPosition保持相对父物体
-        rt.sizeDelta = size;
+        //rt.sizeDelta = size;
 
         // 重置缩放和旋转，避免继承父物体的变换
         rt.localScale = Vector3.one;
