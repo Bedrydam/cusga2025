@@ -7,6 +7,8 @@ public class RoadListManeger : MonoBehaviour
 {
     public int thisPage;//用于判断页面以及第几条线路
 
+    private GoodsListUI goodsListUI;
+
     [System.Serializable]
     public class Road_Part//用于存储某段线路（中的每一个方块）
     {
@@ -48,11 +50,13 @@ public class RoadListManeger : MonoBehaviour
     private void OnEnable()
     {
         MouseTrigger.SavePart += SavePart;
+        GoodsListUI.SaveGoodsChange += SaveGoods;
     }
 
     private void OnDisable()
     {
         MouseTrigger.SavePart -= SavePart;
+        GoodsListUI.SaveGoodsChange -= SaveGoods;
     }
 
 
@@ -114,5 +118,12 @@ public class RoadListManeger : MonoBehaviour
     {
 
     }
+
+    public void SaveGoods(int road,int part,GoodsListUI.Goods goods)
+    {
+        Road_List[road].parts[part].goods.wood = goods.wood;
+        Road_List[road].parts[part].goods.stone = goods.stone;
+    }
+
 
 }

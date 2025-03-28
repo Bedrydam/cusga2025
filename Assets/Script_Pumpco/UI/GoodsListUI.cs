@@ -1,9 +1,19 @@
 using System.Collections;
+using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 
 public class GoodsListUI : MonoBehaviour
 {
+    public static event Action<int,int,Goods> SaveGoodsChange;
+
+    private UISpawner spawner;
+    private bool canSave;
+
+    private int road;
+    private int part;
+
     [System.Serializable]
     public class Goods
     {
@@ -36,7 +46,7 @@ public class GoodsListUI : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        
+        spawner = GetComponent<UISpawner>();
     }
 
     // Update is called once per frame
@@ -45,24 +55,31 @@ public class GoodsListUI : MonoBehaviour
         
     }
 
-    public void ValueUp(string name)
+    public void CheckWeight()
     {
-
+        int weight=new int();
+        //这里调用选中车辆的承重
+        canSave=!thisGoods.CheckWeight(weight);
     }
 
-    public void ValueDown(string name)
-    {
+    public void WoodUp(){thisGoods.wood++; CheckWeight(); }
 
-    }
+    public void WoodDown(){ thisGoods.wood--; CheckWeight(); }
 
-    public void ValueSet(string name, int num)
-    {
+    public void WoodSet(int num){ thisGoods.wood = num; CheckWeight(); }
 
-    }
 
     public void SaveGoodss()
     {
-
+        if (canSave)
+        {
+            SaveGoodsChange?.Invoke(road,part,thisGoods);
+        }
+        else
+        {
+            Debug.Log("表锅你这车不够大喔");
+            //可以加入弹窗提示
+        }
     }
 
 }

@@ -1,22 +1,23 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Experimental.GlobalIllumination;
 using UnityEngine.UI;
+using static Unity.VisualScripting.Metadata;
 
 public class UISpawner : MonoBehaviour
 {
-    public RoadListManeger roadListManeger;
+    private RoadListManeger roadListManeger;
+    private GoodsListUI goodsListUI;
 
-    [Header("基础设置")]
-    public GameObject uiPrefab;  // RPUI预制体
-    public Transform parentObject;  // 拖入场景中的物体A作为父物体
+    [Header("平滑移动速度")]
+    public float moveDuration = 0.5f;
 
-    [Header("位置配置")]
-    public Vector2 size;
-    public Vector2 firstUILocalPosition;  // 第一个UI的本地坐标（相对于父物体）
-    public Vector2 secondUIOffset;  // 第二个UI相对于第一个的偏移量
-    public int totalUICount = 4;  // 总生成数量
+    private int pageCount;
+    private int thisPage;
+
 
 
 
@@ -24,6 +25,7 @@ public class UISpawner : MonoBehaviour
     public class RoadUI
     {
         public GameObject UIPrefab;//预制体
+        public GameObject AddRoadUIPrefab;//增加路线的预制体
         public Transform parentObject;//父物体（挂载content上）
     }
     public RoadUI roadUISet;
@@ -56,10 +58,13 @@ public class UISpawner : MonoBehaviour
                 });
             }
 
-
-            //根据路线数据修改内容
+            //这里是根据路线数据显示内容
             n++;
         }
+
+        GameObject addRoadUI = Instantiate(roadUISet.AddRoadUIPrefab, roadUISet.parentObject);
+        addRoadUI.name = "AddRoadUI";
+        //这里给这个按钮加上创建新路线的方法
 
     }
 
@@ -78,6 +83,14 @@ public class UISpawner : MonoBehaviour
     }
     public PartUI partUISet;
 
+    [System.Serializable]
+    public class GoodListUI
+    {
+        public GameObject GoodsUI;//用于改变物品数量的UI（已经放在UI中）
+        public GameObject PageUILeft;//翻页UI
+        public GameObject PageUIRight;
+    }
+    public GoodListUI goodUISet;
 
 
     public void PartUISpawn(int num)
@@ -89,21 +102,29 @@ public class UISpawner : MonoBehaviour
         }
         GameObject partUIPanel = Instantiate(partUISet.UIPrefab, partUISet.parentObject);
         partUIPanel.name = "PartUIPanel";
+        partUIPanel.GetComponent<Image>().enabled = false;
 
         List<RoadListManeger.Road_Part> partList = roadListManeger.Road_List[num].parts;
         int n = 0;
-
+        pageCount = -1;
+        thisPage = 0;
         foreach (var i in partList)//生成列表
         {
             GameObject RoadListUI = Instantiate(partUISet.UIPrefab, partUIPanel.transform);
             RoadListUI.name = $"PartList{n}";
             SetUIPosition(RoadListUI, partUISet.firstUIPosition + n * partUISet.UIOffset);
-            //根据路线数据修改内容
+            //这里是根据路线数据显示内容
             n++;
+            pageCount++;
         }
+
+        goodUISet.GoodsUI.SetActive(true);
+        LordGoodList();
+        CheckGoodsPage();
+
     }
 
-    public void EZPartUISpawn()
+    public void EZPartUISpawn(int i)//用于独立测试（未采用）
     {
         Transform partPanel = partUISet.parentObject.transform.Find("PartUIPanel");
         if (partPanel != null)
@@ -112,80 +133,159 @@ public class UISpawner : MonoBehaviour
         }
         GameObject partUIPanel = Instantiate(partUISet.UIPrefab, partUISet.parentObject);
         partUIPanel.name = "PartUIPanel";
+        partUIPanel.GetComponent<Image>().enabled = false;
 
+        pageCount = -1;
+        thisPage = 0;
         int n = 0;
-        while(n<4)//生成列表
+        while(n<i)//生成列表
         {
             GameObject RoadListUI = Instantiate(partUISet.UIPrefab, partUIPanel.transform);
             RoadListUI.name = $"PartList{n}";
             SetUIPosition(RoadListUI, partUISet.firstUIPosition + n * partUISet.UIOffset);
-            //根据路线数据修改内容
+            //这里是根据路线数据显示内容
             n++;
+            pageCount++;
         }
+
+        goodUISet.GoodsUI.SetActive(true);
+        LordGoodList();
+        CheckGoodsPage();
     }
 
 
 
+    public void NextPartPage()
+    {
+        thisPage++;
+        LordGoodList();
+        Transform partPanel = partUISet.parentObject.transform.Find("PartUIPanel");
+        StartCoroutine(HideGoodsUI());
+        for (int i = 0; i < partPanel.childCount; i++)
+        {
+            RectTransform thisUI=partPanel.GetChild(i).GetComponent<RectTransform>();
+            StartCoroutine(SmoothMove(thisUI, thisUI.anchoredPosition, thisUI.anchoredPosition-partUISet.UIOffset));
+            Debug.Log(partPanel.GetChild(i).gameObject.name);
+        }
+        
+    }
+
+    public void LatePartPage()
+    {
+        thisPage--;
+        LordGoodList();
+        Transform partPanel = partUISet.parentObject.transform.Find("PartUIPanel");
+        StartCoroutine(HideGoodsUI());
+        for (int i = 0; i < partPanel.childCount; i++)
+        {
+            RectTransform thisUI = partPanel.GetChild(i).GetComponent<RectTransform>();
+            StartCoroutine(SmoothMove(thisUI, thisUI.anchoredPosition, thisUI.anchoredPosition + partUISet.UIOffset));
+            Debug.Log(partPanel.GetChild(i).gameObject.name);
+        }
+        
+    }
+
+    private IEnumerator SmoothMove(RectTransform rect, Vector2 startPos, Vector2 endPos, System.Action onComplete = null)
+    {
+        float elapsed = 0f;
+
+        while (elapsed < moveDuration)
+        {
+            rect.anchoredPosition = Vector2.Lerp(startPos, endPos, elapsed / moveDuration);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        rect.anchoredPosition = endPos;
+        onComplete?.Invoke();
+    }
+
+    private IEnumerator HideGoodsUI()
+    {
+        goodUISet.GoodsUI.SetActive(false);
+        yield return new WaitForSeconds(moveDuration);
+        goodUISet.GoodsUI.SetActive(true);
+        CheckGoodsPage();
+    }
+
+    public void CheckGoodsPage()
+    {
+        goodUISet.PageUILeft.SetActive(true);
+        goodUISet.PageUIRight.SetActive(true);
+        if (thisPage == 0)
+        {
+            goodUISet.PageUILeft.SetActive(false);
+        }
+        if (thisPage == pageCount)
+        {
+            goodUISet.PageUIRight.SetActive(false);
+        }
+        
+    }
+
+    public void LordGoodList()
+    {
+        //这里写载入当前是哪条路段
+
+        //这里写载入当前路段的商品信息
+        
+    }
 
     void Start()
     {
         roadListManeger = GetComponentInChildren<RoadListManeger>();
-
-        if (parentObject == null)
-        {
-            Debug.LogError("未指定父物体！");
-            return;
-        }
-
+        goodsListUI = GetComponent<GoodsListUI>();
+        gameObject.SetActive(false);
         //EZSpawn();
     }
 
-    void SpawnChildUIs()
+    private void Update()
     {
-        // 生成第一个UI
-        GameObject firstUI = Instantiate(uiPrefab, parentObject);
-        firstUI.name = "RPUI_0";
-        SetUIPosition(firstUI, firstUILocalPosition);
-
-        // 生成第二个UI
-        if (totalUICount >= 2)
-        {
-            GameObject secondUI = Instantiate(uiPrefab, parentObject);
-            secondUI.name = "RPUI_1";
-            SetUIPosition(secondUI, firstUILocalPosition + secondUIOffset);
-
-            // 生成剩余UI（按相同偏移量继续）
-            for (int i = 2; i < totalUICount; i++)
-            {
-                GameObject newUI = Instantiate(uiPrefab, parentObject);
-                newUI.name = $"RPUI_{i}";
-                SetUIPosition(newUI, firstUILocalPosition + (secondUIOffset * i));
-            }
-        }
+        
     }
+
 
     void SetUIPosition(GameObject ui, Vector2 localPosition)
     {
         RectTransform rt = ui.GetComponent<RectTransform>();
-        rt.localPosition = localPosition;  // 使用localPosition保持相对父物体
-        //rt.sizeDelta = size;
-
+        rt.localPosition = localPosition;  //保持相对父物体
         // 重置缩放和旋转，避免继承父物体的变换
         rt.localScale = Vector3.one;
         rt.localRotation = Quaternion.identity;
     }
 
-    public void EZSpawn()
+    public void OpenRoadUI()
     {
-        int i = 0;
-        while (i < 4)
-        {
-            i++;
-            GameObject firstUI = Instantiate(uiPrefab, parentObject);
-            firstUI.name = "RPUI_0";
-        }
-        
+        OpenUI();
+        RoadUISpawn();
+    }
 
+    public void OpenUI()//仅用于打开功能菜单（不更新功能菜单内容）（需搭配打开功能使用）
+    {
+        gameObject.SetActive(true);
+    }
+
+    public void CloseUI()//仅用于关闭功能菜单
+    {
+        gameObject.SetActive(false);
+    }
+
+    public void ClosePartUI()
+    {
+        goodUISet.GoodsUI.SetActive(false);
+        Transform partPanel = partUISet.parentObject.transform.Find("PartUIPanel");
+        if (partPanel != null)
+        {
+            Destroy(partPanel.gameObject);
+        }
+    }
+
+    public void CloseRoadUI()//仅用于消去路线列
+    {
+        for (int i = roadUISet.parentObject.childCount - 1; i >= 0; i--)//清空缓存列表
+        {
+            Destroy(roadUISet.parentObject.GetChild(i).gameObject);
+        }
     }
 
 
