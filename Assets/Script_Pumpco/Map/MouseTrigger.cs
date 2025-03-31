@@ -161,11 +161,13 @@ public class MouseTrigger : MonoBehaviour
     private void OnEnable()
     {
         EventManeger.ToRoadMode += ChangeRoadMode;
+        RoadListManeger.SendLastCube += GetLastCube;
     }
 
     private void OnDisable()
     {
         EventManeger.ToRoadMode -= ChangeRoadMode;
+        RoadListManeger.SendLastCube -= GetLastCube;
     }
 
     public void ChangeRoadMode(bool x)
@@ -175,7 +177,10 @@ public class MouseTrigger : MonoBehaviour
         Debug.Log("Trigger:表锅绘制路线模式是" + x + "了喔");
     }
 
-
+    public void GetLastCube(GameObject last)
+    {
+        lastCube = last;
+    }
 
 
 
@@ -226,7 +231,7 @@ public class MouseTrigger : MonoBehaviour
             Debug.Log("表锅你按下鼠标了喔？");
             getCube();
             
-            if (fristPoint)//用于判断是否为开头
+            if (fristPoint&&lastCube==null)//用于判断是否为开头 以及判断是否是新路线
             {
                 if (cubeScript.isBuild)
                 {

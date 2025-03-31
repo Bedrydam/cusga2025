@@ -5,7 +5,8 @@ using UnityEngine;
 
 public class RoadListManeger : MonoBehaviour
 {
-    public int thisPage;//用于判断页面以及第几条线路
+    public static event Action<GameObject> SendLastCube;
+    public int thisRoad;//用于第几条线路
 
     private GoodsListUI goodsListUI;
 
@@ -29,6 +30,8 @@ public class RoadListManeger : MonoBehaviour
     {
         public List<Road_Part> parts;
 
+        public bool Completed;//用于判断路线是否首尾相连
+
         public void AddPart(List<GameObject> gameObjects,int goLength)//用于给这一整条线路添加一段小路段
         {
             Debug.Log("表锅我给数据库加了个东西喔？");
@@ -36,6 +39,11 @@ public class RoadListManeger : MonoBehaviour
             newPart.baseCubes = gameObjects;
             newPart.length=goLength;
             parts.Add(newPart);
+        }
+
+        public void CheckComplete()//用于检测路线是否完成
+        {
+            Completed = (parts[0].baseCubes[0] == parts[^1].baseCubes[^1]);
         }
 
         public void ChangeGoods()//用于更改商品
@@ -49,17 +57,33 @@ public class RoadListManeger : MonoBehaviour
 
     private void OnEnable()
     {
+        EventManeger.ToRoadMode += LoadLastCube;
         MouseTrigger.SavePart += SavePart;
         GoodsListUI.SaveGoodsChange += SaveGoods;
     }
 
     private void OnDisable()
     {
+
+        EventManeger.ToRoadMode -= LoadLastCube;
         MouseTrigger.SavePart -= SavePart;
         GoodsListUI.SaveGoodsChange -= SaveGoods;
     }
 
-
+    public void LoadLastCube(bool b)
+    {
+        if (b)
+        {
+            if (Road_List[thisRoad] == null)
+            {
+                SendLastCube?.Invoke(null);
+            }
+            else
+            {
+                SendLastCube?.Invoke(Road_List[thisRoad].parts[^1].baseCubes[^1]);
+            }
+        }
+    }
 
 
 
@@ -77,15 +101,16 @@ public class RoadListManeger : MonoBehaviour
 
     public void SavePart(List<GameObject> gameObjects,int length)//用于添加段落
     {
-        if (Road_List.Count <= thisPage)
+        if (Road_List.Count <= thisRoad)
         {
             Road_List.Add(new Road_Road());
         }
-        if (Road_List[thisPage].parts == null)
+        if (Road_List[thisRoad].parts == null)
         {
-            Road_List[thisPage].parts = new List<Road_Part>();
+            Road_List[thisRoad].parts = new List<Road_Part>();
         }
-        Road_List[thisPage].AddPart(gameObjects,length);
+        Road_List[thisRoad].AddPart(gameObjects,length);
+        Road_List[thisRoad].CheckComplete();
     }
 
     public void DeletePart()//用于删除某个段落
@@ -96,10 +121,10 @@ public class RoadListManeger : MonoBehaviour
 
     public void DeleteRoad()//删除序号从0开始,用于删除某条已完成路线
     {
-        if (thisPage >= 0 && thisPage < Road_List.Count)
+        if (thisRoad >= 0 && thisRoad < Road_List.Count)
         {
-            Road_List.RemoveAt(thisPage);
-            thisPage = thisPage - 1;
+            Road_List.RemoveAt(thisRoad);
+            thisRoad = thisRoad - 1;
             //触发翻页
         }
         else
@@ -124,6 +149,9 @@ public class RoadListManeger : MonoBehaviour
         Road_List[road].parts[part].goods.wood = goods.wood;
         Road_List[road].parts[part].goods.stone = goods.stone;
     }
+
+
+
 
 
 }
